@@ -8,7 +8,13 @@ on:
     paths:
       - 'supabase/functions/**'
       - '.github/workflows/main.yml'
-
+    workflow_dispatch:
+        inputs:
+        reason:
+            description: 'Manual deployment reason'
+            required: false
+            default: 'Manual trigger from GitHub Actions tab'
+            
 jobs:
   deploy:
     runs-on: ubuntu-latest
