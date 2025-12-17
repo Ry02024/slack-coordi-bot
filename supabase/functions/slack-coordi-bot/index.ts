@@ -1,32 +1,29 @@
 
-// supabase/functions/slack-coordi-bot/index.ts (完全 User Token 参照版)
+// supabase/functions/slack-coordi-bot/index.ts (動的チャンネル参照再統合版)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { WebClient } from "https://esm.sh/@slack/web-api@6.11.2";
 
 // ------------------- 環境変数設定 -------------------
-// 🤖 Bot Token: メッセージの投稿に使用 (xoxb-)
 const SLACK_BOT_TOKEN = Deno.env.get("SLACK_BOT_TOKEN")!;
-
-// 👤 User Token: ファイル読み取り & 履歴取得に使用 (xoxp-)
 const SLACK_USER_TOKEN = Deno.env.get("SLACK_USER_TOKEN")!;
-
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
 const ALLOWED_CHANNELS_RAW = Deno.env.get("ALLOWED_CHANNEL_ID") || "";
 const ALLOWED_CHANNELS = ALLOWED_CHANNELS_RAW.split(",").map(id => id.trim()).filter(id => id.length > 0);
 
-// Bot操作用クライアント (発言用)
 const botClient = new WebClient(SLACK_BOT_TOKEN);
-// User操作用クライアント (情報収集用)
 const userClient = new WebClient(SLACK_USER_TOKEN);
 
 console.log(`Bot started.`);
 
-// ------------------- ヘルパー関数: ファイル内容の取得 -------------------
+// 💡 再追加: チャンネルIDを抽出する正規表現
+const CHANNEL_ID_REGEX = /<#([A-Z0-9]+)\|[^>]+>|#([A-Z0-9]+)/;
 
+
+// ------------------- ヘルパー関数: ファイル内容の取得 -------------------
+// ... (変更なし) ...
 async function getFileContent(fileId: string): Promise<string> {
     try {
-        // User Tokenを使ってファイル情報を取得
         const fileInfoResponse = await userClient.files.info({ file: fileId });
         const file = fileInfoResponse.file as any;
 
@@ -77,33 +74,56 @@ serve(async (req) => {
             let context = '';
             let source = '';
             
+            // --- 💡 追加修正点 1: 参照チャンネルIDの決定 ---
+            let referenceChannelId = incomingChannel; // デフォルトは現在のチャンネル
+            let queryText = originalUserQuestion;
+            
+            const match = originalUserQuestion.match(CHANNEL_ID_REGEX);
+
+            if (match) {
+                const extractedId = match[1] || match[2];
+
+                if (extractedId) {
+                    referenceChannelId = extractedId;
+                    // チャンネル指定があった場合、質問文からその部分を除去
+                    queryText = originalUserQuestion.replace(CHANNEL_ID_REGEX, '').trim();
+                    console.log(`参照チャンネルIDを ${referenceChannelId} に設定しました。`);
+                }
+            }
+            
             // 1. ファイルが添付されているかチェック
             if (body.event.files && body.event.files.length > 0) {
                 const fileId = body.event.files[0].id;
                 context = await getFileContent(fileId);
-                source = '添付ファイル(User Token)';
+                source = '添付ファイル (User Token)';
             } else {
-                // 2. ファイルがない場合は履歴を取得
-                // 💡 修正: User Token (userClient) を使って履歴を取得
-                // これにより、Botが参加していないチャンネルでもUserが見える範囲なら取得可能
+                // 2. ファイルがない場合は、決定した参照チャンネルの履歴を取得
                 try {
                     const historyResponse = await userClient.conversations.history({ 
-                        channel: incomingChannel, 
+                        // 💡 修正点 2: 決定した referenceChannelId を使用
+                        channel: referenceChannelId, 
                         limit: 10 
                     });
                     context = (historyResponse.messages || [])
                         .reverse() 
                         .map((m: any) => `${m.user ? 'User' : 'Bot'}: ${m.text}`)
                         .join("\n");
-                    source = 'チャンネル履歴(User Token)';
+                    source = `チャンネル履歴 (User Token, 参照先: ${referenceChannelId})`;
                 } catch (e) {
                     console.log("履歴取得失敗:", e);
-                    context = "(履歴を取得できませんでした。User Tokenの権限またはチャンネルIDを確認してください)";
+                    context = `(履歴を取得できませんでした。参照先: ${referenceChannelId}。User Tokenの権限またはチャンネルIDを確認してください)`;
                 }
             }
 
-            console.log(`コンテキストソース: ${source}`);
+            // 💡 修正点 3: Geminiに渡す質問文は整形後の queryText を使用
+            const finalQuestion = queryText;
             
+            console.log(`--- コンテキスト取得完了 ---`);
+            console.log(`ソース: ${source}`);
+            console.log(`取得されたコンテキスト (抜粋): ${context.substring(0, 500).replace(/\n/g, ' | ')}...`);
+            console.log(`----------------------------`);
+
+
             const backgroundTask = async () => {
                 try {
                     const MODEL_NAME = "gemini-2.5-flash";
@@ -115,7 +135,7 @@ serve(async (req) => {
 [文脈情報]
 ${context}
 [質問]
-${originalUserQuestion}`;
+${finalQuestion}`; // チャンネル指定部分が除去された質問
 
                     const response = await fetch(apiUrl, {
                         method: "POST",
@@ -130,7 +150,6 @@ ${originalUserQuestion}`;
                     const data = await response.json();
                     const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "回答生成エラー";
                     
-                    // 返信は Bot Token で行う
                     await botClient.chat.postMessage({ channel: incomingChannel, text: answer });
                 } catch (err) {
                     console.error("Error in backgroundTask:", err);
