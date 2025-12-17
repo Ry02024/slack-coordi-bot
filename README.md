@@ -63,7 +63,7 @@ git push origin main
 
 ```
 
-##💡 使用方法Bot が参加しているチャンネルで `@` メンションを付けて質問してください。
+## 💡 使用方法Bot が参加しているチャンネルで `@` メンションを付けて質問してください。
 
 | 機能 | 入力例 | 動作 |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ git push origin main
 
 ---
 
-##💻 内部構造 (Deno / TypeScript)Bot のロジックは `slack-coordi-bot/index.ts` に集約されています。
+## 💻 内部構造 (Deno / TypeScript)Bot のロジックは `slack-coordi-bot/index.ts` に集約されています。
 
 * **クライアント**: `botClient` (投稿用) と `userClient` (情報収集用) を分離。
 * **文脈決定ロジック**:
