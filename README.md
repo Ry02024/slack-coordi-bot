@@ -21,7 +21,8 @@
 
 
 
-##🚀 セットアップ###ステップ 1: プロジェクトの準備1. **Supabase CLI のインストール**
+##🚀 セットアップ
+### ステップ 1: プロジェクトの準備1. **Supabase CLI のインストール**
 2. **Supabase プロジェクトの作成**:
 ```bash
 # プロジェクト初期化
@@ -37,14 +38,14 @@ supabase functions new slack-coordi-bot
 
 
 
-###ステップ 2: Slack App の設定とスコープ付与Slack App の管理画面で以下の権限を設定し、App をワークスペースに再インストールしてトークンを取得します。
+### ステップ 2: Slack App の設定とスコープ付与Slack App の管理画面で以下の権限を設定し、App をワークスペースに再インストールしてトークンを取得します。
 
 | トークン | スコープ | 目的 |
 | --- | --- | --- |
 | **Bot Token (`xoxb-`)** | `chat:write` | メッセージをチャンネルに投稿するため。 |
 | **User Token (`xoxp-`)** | `channels:history`, `groups:history`, `files:read` | Bot 不参加チャンネルの履歴取得、およびファイルの読み取りのため。 |
 
-###ステップ 3: 環境変数の設定 (Supabase Secrets)Supabase ダッシュボードの **Edge Functions** > **Secrets** にて、以下の環境変数を設定します。
+### ステップ 3: 環境変数の設定 (Supabase Secrets)Supabase ダッシュボードの **Edge Functions** > **Secrets** にて、以下の環境変数を設定します。
 
 | 変数名 | 値 |
 | --- | --- |
@@ -53,7 +54,7 @@ supabase functions new slack-coordi-bot
 | `GEMINI_API_KEY` | Google Gemini API キー |
 | `ALLOWED_CHANNEL_ID` | Bot が動作を許可するチャンネル ID (カンマ区切り、任意) |
 
-###ステップ 4: デプロイGitHub Actions を設定している場合、Git にプッシュすることで自動的にデプロイされます。
+### ステップ 4: デプロイGitHub Actions を設定している場合、Git にプッシュすることで自動的にデプロイされます。
 
 ```bash
 git add .
@@ -82,5 +83,3 @@ git push origin main
 
 
 * **AI処理**: 取得した文脈情報とユーザーの質問をプロンプトに組み込み、Gemini API に渡し、回答を取得します。
-
-この `README.md` で、プロジェクトの概要と運用方法が網羅できているかと思います。この内容でよろしいでしょうか？
